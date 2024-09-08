@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 
 .direnv/
+
+backend/greenlist.json
+backend/*js
