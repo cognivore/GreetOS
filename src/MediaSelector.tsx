@@ -11,6 +11,7 @@ interface MediaSelectorProps {
 }
 
 const MediaSelector: React.FC<MediaSelectorProps> = ({ mediaList, onSelectMedia }) => {
+    console.log('MediaList:', mediaList);
     return (
         <div className="bg-gray-700 text-white w-full p-4">
             <h2 className="text-lg font-bold mb-4">Media Files</h2>

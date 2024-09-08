@@ -75,9 +75,9 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
         }
     };
 
-    const handleSelectMedia = (dir: string, file: string) => {
+    const handleSelectMedia = (_dir: string, file: string) => {
         // Replace double forward slashes!
-        const mediaUrl = `/media/${dir}/${file}`.replace(/\/\/+/g, '/');
+        const mediaUrl = `/media/${file}`.replace(/\/\/+/g, '/');
         const timestamp = new Date().toLocaleTimeString();
         const mediaMessage: Message = { username, media: mediaUrl, timestamp };
 

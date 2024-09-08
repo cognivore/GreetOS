@@ -67,11 +67,11 @@ const isUsernameInGreenlist = (username: string): boolean => {
     return greenlist.allowedUsernames.includes(username);
 };
 
-// Helper function to list media files from all directories in greenlist
+// Helper function to list media files from all directories in greenlist recursively
 const getMediaFilesFromDirs = () => {
     return greenlist.mediaDirs.map((dir) => {
         try {
-            const mediaFiles = fs.readdirSync(dir).filter((file) => /\.(mp4|webm)$/.test(file));
+            const mediaFiles = traverseDirectoryRecursively(dir);
             console.log("Found media files in directory:", dir, mediaFiles);
             return { dir, files: mediaFiles };
         } catch (error) {
@@ -81,11 +81,36 @@ const getMediaFilesFromDirs = () => {
     });
 };
 
+// Function to recursively traverse directories and collect media files
+const traverseDirectoryRecursively = (dir: string) => {
+    let mediaFiles: string[] = [];
+
+    try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+        entries.forEach((entry) => {
+            const fullPath = path.join(dir, entry.name);
+
+            if (entry.isDirectory()) {
+                // Recursively traverse subdirectories
+                mediaFiles = mediaFiles.concat(traverseDirectoryRecursively(fullPath));
+            } else if (entry.isFile() && /\.(mp4|webm)$/i.test(entry.name)) {
+                // Collect the media file if it matches .mp4 or .webm
+                mediaFiles.push(fullPath);
+            }
+        });
+    } catch (error) {
+        console.error(`Error reading directory: ${dir}`, error);
+    }
+
+    return mediaFiles;
+};
+
 // Serve static media files from directories
 greenlist.mediaDirs.forEach((dir) => {
     const mediaEndpoint = `/media/${dir}`.replace(/\/\//g, '/');
     console.log("Setting up media endpoint:", mediaEndpoint);
-    app.use(mediaEndpoint, express.static(`/${dir}`));
+    app.use(mediaEndpoint, express.static(`/${dir}`.replace(/\/\//g, '/')));
 });
 
 // Serve static assets (React app) from the `dist` folder
