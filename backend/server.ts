@@ -203,6 +203,8 @@ io.on('connection', (socket) => {
     let lastSeekEvent = { timestamp: 0, media: { dir: '', file: '' } };
 
     socket.on('seekMedia', (media: WatchZoneMediaFile, timestamp: number) => {
+        // Round timestamp to nearest second
+        timestamp = Math.round(timestamp);
         if (lastSeekEvent.media && lastSeekEvent.media.dir === media.dir && lastSeekEvent.media.file === media.file && lastSeekEvent.timestamp === timestamp) {
             return;
         }
