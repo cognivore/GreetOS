@@ -5,7 +5,8 @@ import UsernameInput from './UsernameInput';
 import { io, Socket } from 'socket.io-client';
 import './App.css';
 
-const socket: Socket = io('http://localhost:3001'); // Initialize the socket at the top level
+const port = window.location.port ? `:${window.location.port}` : '';
+const socket: Socket = io(`${window.location.protocol}//${window.location.hostname}${port}`);
 
 const App: React.FC = () => {
     const [isChatEnabled, setIsChatEnabled] = useState(false);
