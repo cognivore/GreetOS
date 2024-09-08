@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import MediaMessage from './MediaMessage';
 import MediaSelector from './MediaSelector';
+import PinnedMediaMessage from './PinnedMediaMessage';
 
 interface Message {
     username: string;
@@ -26,9 +27,9 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
     const [users, setUsers] = useState<User[]>([]);
     const [mediaList, setMediaList] = useState<{ dir: string; files: string[] }[]>([]);
     const [showMediaSelector, setShowMediaSelector] = useState(false);
-    const messageEndRef = useRef<HTMLDivElement | null>(null); // Ref for scrolling
+    const [pinnedMedia, setPinnedMedia] = useState<Message | null>(null); // Track the pinned media
+    const messageEndRef = useRef<HTMLDivElement | null>(null);
 
-    // Scroll to the bottom when a new message arrives
     useEffect(() => {
         messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
@@ -68,16 +69,36 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
     };
 
     const handleSelectMedia = (dir: string, file: string) => {
-        socket.emit('selectMedia', { dir, file });
+        const mediaUrl = `/media/${dir}/${file}`;
+        const timestamp = new Date().toLocaleTimeString();
+        const mediaMessage: Message = { username, media: mediaUrl, timestamp };
+
+        // Pin the media in the watching zone
+        setPinnedMedia(mediaMessage);
+
+        // Also send the media message to the chat
+        socket.emit('chatMessage', mediaMessage);
         setShowMediaSelector(false); // Hide media selector after choosing a file
     };
 
     return (
         <div className="h-screen w-screen flex flex-col bg-gray-900">
-            <div className="flex flex-grow overflow-hidden">
+            {/* Flex container switches between row on desktop and column on mobile */}
+            <div className={`flex ${pinnedMedia ? 'flex-col md:flex-row' : 'md:flex-row'} flex-grow overflow-hidden`}>
 
-                {/* Message Area */}
-                <div className="flex-grow bg-gray-800 p-4 overflow-y-auto">
+                {/* Conditionally Render Watching Zone if there's pinned media */}
+                {pinnedMedia && (
+                    <div className="w-full md:w-3/4 bg-black">
+                        <PinnedMediaMessage
+                            mediaUrl={pinnedMedia.media!}
+                            timestamp={pinnedMedia.timestamp}
+                            username={pinnedMedia.username}
+                        />
+                    </div>
+                )}
+
+                {/* Message Area takes full width if no media, or 3/4 width if media is present */}
+                <div className={`flex-grow ${pinnedMedia ? 'md:w-1/4' : 'md:w-3/4'} bg-gray-800 p-4 overflow-y-auto`}>
                     <div className="w-full">
                         {messages.map((msg, index) => (
                             <div key={index} className="mb-4 text-white w-full">
@@ -102,8 +123,8 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
                     </div>
                 </div>
 
-                {/* User List */}
-                <div className="bg-gray-700 text-white w-48 p-4 md:block hidden">
+                {/* Users Pane */}
+                <div className="bg-gray-700 text-white w-48 p-4 md:w-1/4">
                     <h2 className="text-lg font-bold mb-4">Users</h2>
                     <ul className="space-y-2">
                         {users.map((user) => (
@@ -147,6 +168,7 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
             </div>
         </div>
     );
+
 };
 
 export default Chat;
