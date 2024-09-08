@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
+import MediaMessage from './MediaMessage';
+import MediaSelector from './MediaSelector';
 
 interface Message {
     username: string;
-    text: string;
+    text?: string;
+    media?: string;
     timestamp: string;
 }
 
@@ -21,7 +24,14 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [message, setMessage] = useState('');
     const [users, setUsers] = useState<User[]>([]);
-    const [_isUserListVisible, _setIsUserListVisible] = useState(true);
+    const [mediaList, setMediaList] = useState<{ dir: string; files: string[] }[]>([]);
+    const [showMediaSelector, setShowMediaSelector] = useState(false);
+    const messageEndRef = useRef<HTMLDivElement | null>(null); // Ref for scrolling
+
+    // Scroll to the bottom when a new message arrives
+    useEffect(() => {
+        messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
 
     useEffect(() => {
         socket.on('chatHistory', (chatHistory: Message[]) => {
@@ -36,10 +46,15 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
             setUsers(userList);
         });
 
+        socket.on('mediaList', (mediaFiles) => {
+            setMediaList(mediaFiles);
+        });
+
         return () => {
             socket.off('chatHistory');
             socket.off('chatMessage');
             socket.off('userList');
+            socket.off('mediaList');
         };
     }, [socket]);
 
@@ -52,6 +67,11 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
         }
     };
 
+    const handleSelectMedia = (dir: string, file: string) => {
+        socket.emit('selectMedia', { dir, file });
+        setShowMediaSelector(false); // Hide media selector after choosing a file
+    };
+
     return (
         <div className="h-screen w-screen flex flex-col bg-gray-900">
             <div className="flex flex-grow overflow-hidden">
@@ -60,14 +80,25 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
                 <div className="flex-grow bg-gray-800 p-4 overflow-y-auto">
                     <div className="w-full">
                         {messages.map((msg, index) => (
-                            < div key={index} className="mb-4 text-white w-full" >
-                                <div className="w-full flex justify-between">
-                                    <span className="text-sm text-gray-400">{msg.timestamp}</span>
-                                    <strong className="text-blue-400">{msg.username}</strong>
-                                </div>
-                                <span className="block w-full break-words">{msg.text}</span>
+                            <div key={index} className="mb-4 text-white w-full">
+                                {msg.media ? (
+                                    <MediaMessage
+                                        mediaUrl={msg.media}
+                                        timestamp={msg.timestamp}
+                                        username={msg.username}
+                                    />
+                                ) : (
+                                    <div className="w-full">
+                                        <div className="w-full flex justify-between">
+                                            <span className="text-sm text-gray-400">{msg.timestamp}</span>
+                                            <strong className="text-blue-400">{msg.username}</strong>
+                                        </div>
+                                        <span className="block w-full break-words">{msg.text}</span>
+                                    </div>
+                                )}
                             </div>
                         ))}
+                        <div ref={messageEndRef} /> {/* Invisible div to scroll to */}
                     </div>
                 </div>
 
@@ -82,8 +113,16 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
                 </div>
             </div>
 
+            {/* Media Selector */}
+            {showMediaSelector && (
+                <MediaSelector
+                    mediaList={mediaList}
+                    onSelectMedia={handleSelectMedia}
+                />
+            )}
+
             {/* Input Area */}
-            <div className="flex p-2 bg-gray-700 border-t border-gray-600 fixed bottom-0 left-0 w-full">
+            <div className="flex p-2 bg-gray-700 border-t border-gray-600 w-full">
                 <input
                     type="text"
                     className="flex-grow p-2 border border-gray-500 bg-gray-800 text-white rounded-l focus:outline-none"
@@ -97,8 +136,16 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
                 >
                     Send
                 </button>
+
+                {/* Toggle Media Selector Button */}
+                <button
+                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 ml-2"
+                    onClick={() => setShowMediaSelector(!showMediaSelector)}
+                >
+                    {showMediaSelector ? 'Hide Media' : 'Select Media'}
+                </button>
             </div>
-        </div >
+        </div>
     );
 };
 

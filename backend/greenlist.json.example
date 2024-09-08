@@ -1,0 +1,8 @@
+{
+  "allowedUsernames": ["calm", "gerg", "admin", "user1", "ctf_enthusiast"],
+  "mediaDirs": [
+    "/media/externalHDD/media1",
+    "/media/externalHDD/media2"
+  ]
+}
+

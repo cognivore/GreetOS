@@ -1,7 +1,7 @@
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
-//import cors from 'cors';
+// import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url'; // This is necessary for ESM
@@ -32,9 +32,9 @@ interface User {
     isAllowedToChat: boolean;
 }
 
-// Load the greenlist (allowed usernames)
+// Load the greenlist (allowed usernames and mediaDirs)
 const greenlistPath = path.join(__dirname, 'greenlist.json');
-const greenlist: { allowedUsernames: string[] } = JSON.parse(
+const greenlist: { allowedUsernames: string[]; mediaDirs: string[] } = JSON.parse(
     fs.readFileSync(greenlistPath, 'utf8')
 );
 
@@ -52,6 +52,34 @@ const isUsernameInGreenlist = (username: string): boolean => {
     return greenlist.allowedUsernames.includes(username);
 };
 
+// Helper function to list media files from all directories in greenlist
+const getMediaFilesFromDirs = () => {
+    return greenlist.mediaDirs.map((dir) => {
+        try {
+            const mediaFiles = fs.readdirSync(dir).filter((file) => /\.(mp4|webm)$/.test(file));
+            console.log("Found media files in directory:", dir, mediaFiles);
+            return { dir: path.basename(dir), files: mediaFiles };
+        } catch (error) {
+            console.error(`Error reading media directory: ${dir}`, error);
+            return { dir: path.basename(dir), files: [] };
+        }
+    });
+};
+
+// Serve static media files from directories
+greenlist.mediaDirs.forEach((dir) => {
+    app.use(`/media/${path.basename(dir)}`, express.static(dir));
+});
+
+// Serve static assets (React app) from the `dist` folder
+const frontendDir = path.join(__dirname, '../dist'); // Assuming your frontend is built in the 'dist' directory
+app.use(express.static(frontendDir));
+
+// Catch-all route to serve `index.html` for client-side routing
+app.get('*', (_req, res) => {
+    res.sendFile(path.join(frontendDir, 'index.html'));
+});
+
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
@@ -66,17 +94,21 @@ io.on('connection', (socket) => {
 
         if (user) {
             if (isUsernameInGreenlist(newUsername)) {
-                console.log("Username is in the greenlist");
-                console.log("Was: ", user);
-                // If username is in the greenlist, allow the user to chat
+                console.log('Username is in the greenlist');
                 user.name = newUsername;
                 user.isAllowedToChat = true;
-                console.log("Now: ", user);
-                socket.emit('chatEnabled', true); // Notify the user that they are allowed to chat
-                socket.emit('chatHistory', messages); // Send chat history to the allowed user
-                sendUserListToAllowedUsers(); // Broadcast the updated user list
+                console.log('User allowed to chat:', user);
+
+                // Notify user and send chat history
+                socket.emit('chatEnabled', true);
+                socket.emit('chatHistory', messages);
+                sendUserListToAllowedUsers();
+
+                // Send media file listings from all directories
+                const mediaFiles = getMediaFilesFromDirs();
+                socket.emit('mediaList', mediaFiles); // Send media files to the user
             } else {
-                // If username is not in the greenlist, deny access
+                // Deny access if username is not in greenlist
                 socket.emit('error', 'Username not allowed');
             }
         }
@@ -87,24 +119,35 @@ io.on('connection', (socket) => {
         console.log('Trying to send message:', message);
         const user = users.find((u) => u.id === socket.id);
 
-        console.log("Found user:", user);
         if (user && user.isAllowedToChat) {
-            console.log("User is allowed to chat");
-            // Only allowed users can send messages
+            console.log('User is allowed to chat');
             const timestampedMessage = { ...message, timestamp: new Date().toLocaleTimeString() };
             messages.push(timestampedMessage); // Add message to chat history
             io.emit('chatMessage', timestampedMessage); // Broadcast message to all clients
         } else {
-            // If the user is not allowed to chat, deny the action
             socket.emit('error', 'You are not allowed to chat');
+        }
+    });
+
+    // Handle media selection
+    socket.on('selectMedia', (mediaFile: { dir: string; file: string }) => {
+        const user = users.find((u) => u.id === socket.id);
+        if (user && user.isAllowedToChat) {
+            const mediaPath = `/media/${mediaFile.dir}/${mediaFile.file}`;
+            const timestamp = new Date().toLocaleTimeString();
+            const mediaMessage = { username: user.name, text: '', timestamp, media: mediaPath };
+            messages.push(mediaMessage); // Add media message to chat history
+            io.emit('chatMessage', mediaMessage); // Broadcast media to all users
+        } else {
+            socket.emit('error', 'You are not allowed to share media');
         }
     });
 
     // Handle user disconnect
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
-        users = users.filter((u) => u.id !== socket.id); // Remove the user from the list
-        sendUserListToAllowedUsers(); // Update the user list for allowed users
+        users = users.filter((u) => u.id !== socket.id); // Remove user from list
+        sendUserListToAllowedUsers(); // Update user list for allowed users
     });
 });
 
