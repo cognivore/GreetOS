@@ -4,6 +4,7 @@ import MediaMessage from './MediaMessage';
 import MediaSelector from './MediaSelector';
 import PinnedMediaMessage from './PinnedMediaMessage';
 import { WatchZoneMediaFile } from '../backend/server';
+import UsersPane from './UsersPane';
 
 interface Message {
     username: string;
@@ -99,7 +100,7 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
 
                 {/* Conditionally Render Watching Zone if there's pinned media */}
                 {pinnedMedia && (
-                    <div className="w-full md:w-3/4 bg-black">
+                    <div className="w-full md:w-3/4 bg-black flex justify-center items-center max-h-[calc(100vh-8rem)]">
                         <PinnedMediaMessage
                             media={pinnedMedia}
                             socket={socket}
@@ -133,15 +134,7 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
                     </div>
                 </div>
 
-                {/* Users Pane */}
-                <div className="bg-gray-700 text-white w-48 p-4 md:w-1/4">
-                    <h2 className="text-lg font-bold mb-4">Users</h2>
-                    <ul className="space-y-2">
-                        {users.map((user) => (
-                            <li key={user.id}>{user.name}</li>
-                        ))}
-                    </ul>
-                </div>
+                <UsersPane users={users} />
             </div>
 
             {/* Media Selector */}
@@ -160,6 +153,7 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
                     placeholder="Type your message..."
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
                 />
                 <button
                     className="bg-blue-500 text-white px-4 rounded-r hover:bg-blue-600"

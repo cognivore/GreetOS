@@ -94,7 +94,7 @@ const traverseDirectoryRecursively = (dir: string) => {
             if (entry.isDirectory()) {
                 // Recursively traverse subdirectories
                 mediaFiles = mediaFiles.concat(traverseDirectoryRecursively(fullPath));
-            } else if (entry.isFile() && /\.(mov)$/i.test(entry.name)) {
+            } else if (entry.isFile() && /\.(mp4|mov)$/i.test(entry.name)) {
                 // Collect the media file if it matches .mp4 or .webm
                 mediaFiles.push(fullPath);
             }
@@ -158,11 +158,9 @@ io.on('connection', (socket) => {
 
     // Handle chat messages
     socket.on('chatMessage', (message: Message) => {
-        console.log('Trying to send message:', message);
         const user = users.find((u) => u.id === socket.id);
 
         if (user && user.isAllowedToChat) {
-            console.log('User is allowed to chat');
             const timestampedMessage = { ...message, timestamp: new Date().toLocaleTimeString() };
             messages.push(timestampedMessage); // Add message to chat history
             io.emit('chatMessage', timestampedMessage); // Broadcast message to all clients

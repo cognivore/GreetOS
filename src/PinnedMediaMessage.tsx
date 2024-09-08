@@ -101,13 +101,19 @@ const PinnedMediaMessage: React.FC<PinnedMediaMessageProps> = ({ media, socket }
             return 'video/mp4';
         } else if (extension === 'webm') {
             return 'video/webm';
+        } else if (extension === 'mov') {
+            return 'video/quicktime';
         }
-        return 'video/mp4'; // Default to mp4 if unknown
+        return 'video/quicktime';
     };
 
     return (
-        <div className="pinned-media bg-black w-full h-full p-4">
-            <video ref={videoRef} className="w-full h-auto rounded" controls>
+        <div className="pinned-media bg-black w-full h-full p-0">
+            <video
+                ref={videoRef}
+                className="w-full h-auto max-h-[calc(100vh-8rem)] aspect-video"
+                controls
+            >
                 <source src={media.dir + '/' + media.file} type={getMediaType(media.file)} />
                 Your browser does not support the video tag.
             </video>
