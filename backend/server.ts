@@ -94,7 +94,7 @@ const traverseDirectoryRecursively = (dir: string) => {
             if (entry.isDirectory()) {
                 // Recursively traverse subdirectories
                 mediaFiles = mediaFiles.concat(traverseDirectoryRecursively(fullPath));
-            } else if (entry.isFile() && /\.(mp4|webm)$/i.test(entry.name)) {
+            } else if (entry.isFile() && /\.(mp4|mov|webm)$/i.test(entry.name)) {
                 // Collect the media file if it matches .mp4 or .webm
                 mediaFiles.push(fullPath);
             }
