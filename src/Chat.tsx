@@ -109,7 +109,7 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
                 )}
 
                 {/* Message Area takes full width if no media, or 3/4 width if media is present */}
-                <div className={`flex-grow ${pinnedMedia ? 'md:w-1/4' : 'md:w-3/4'} bg-gray-800 p-4 overflow-y-auto`}>
+                <div className={`flex-grow ${pinnedMedia ? 'md:w-1/4' : 'md:w-3/4'} bg-gray-800 p-4 overflow-y-auto max-h-[calc(100vh-4rem)]`}>
                     <div className="w-full">
                         {messages.map((msg, index) => (
                             <div key={index} className="mb-4 text-white w-full">
