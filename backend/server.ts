@@ -24,6 +24,7 @@ interface Message {
     username: string;
     text: string;
     timestamp: string;
+    media?: string; // This is a path, really. :cringe:
 }
 
 interface User {
@@ -32,14 +33,28 @@ interface User {
     isAllowedToChat: boolean;
 }
 
+export interface TimestampedMedia {
+    media: WatchZoneMediaFile;
+    timestamp: number;
+}
+
 // Load the greenlist (allowed usernames and mediaDirs)
 const greenlistPath = path.join(__dirname, 'greenlist.json');
 const greenlist: { allowedUsernames: string[]; mediaDirs: string[] } = JSON.parse(
     fs.readFileSync(greenlistPath, 'utf8')
 );
 
+export type MediaState = 'idle' | 'playing' | 'paused';
+
+export interface WatchZoneMediaFile {
+    dir: string;
+    file: string;
+    mode: MediaState;
+}
+
 let users: User[] = [];
 let messages: Message[] = [];
+let playingNow: WatchZoneMediaFile | null = null;
 
 // Helper function to send the user list only to allowed users
 const sendUserListToAllowedUsers = () => {
@@ -58,7 +73,7 @@ const getMediaFilesFromDirs = () => {
         try {
             const mediaFiles = fs.readdirSync(dir).filter((file) => /\.(mp4|webm)$/.test(file));
             console.log("Found media files in directory:", dir, mediaFiles);
-            return { dir: path.basename(dir), files: mediaFiles };
+            return { dir, files: mediaFiles };
         } catch (error) {
             console.error(`Error reading media directory: ${dir}`, error);
             return { dir: path.basename(dir), files: [] };
@@ -68,7 +83,9 @@ const getMediaFilesFromDirs = () => {
 
 // Serve static media files from directories
 greenlist.mediaDirs.forEach((dir) => {
-    app.use(`/media/${path.basename(dir)}`, express.static(dir));
+    const mediaEndpoint = `/media/${dir}`.replace(/\/\//g, '/');
+    console.log("Setting up media endpoint:", mediaEndpoint);
+    app.use(mediaEndpoint, express.static(`/${dir}`));
 });
 
 // Serve static assets (React app) from the `dist` folder
@@ -124,8 +141,53 @@ io.on('connection', (socket) => {
             const timestampedMessage = { ...message, timestamp: new Date().toLocaleTimeString() };
             messages.push(timestampedMessage); // Add message to chat history
             io.emit('chatMessage', timestampedMessage); // Broadcast message to all clients
+            // Update WatchZoneMediaFile if message contains "media" field and the file exists
+            if (message.media) {
+                playingNow = {
+                    dir: path.dirname(message.media),
+                    file: path.basename(message.media),
+                    mode: 'idle'
+                };
+            }
+            io.emit('playingNow', playingNow);
         } else {
             socket.emit('error', 'You are not allowed to chat');
+        }
+    });
+
+    socket.on('playMedia', (media: WatchZoneMediaFile) => {
+        if (playingNow) {
+            media.mode = 'playing';
+            if (media.dir !== playingNow.dir && media.file !== playingNow.file) {
+                io.emit('playingNow', media);
+            }
+            socket.broadcast.emit('playingNowPlay', media);
+        }
+    });
+
+    socket.on('pauseMedia', (media: WatchZoneMediaFile) => {
+        if (playingNow) {
+            media.mode = 'paused';
+            if (media.dir !== playingNow.dir && media.file !== playingNow.file) {
+                io.emit('playingNow', media);
+            }
+            socket.broadcast.emit('playingNowPause', media);
+        }
+    });
+
+    let lastSeekEvent = { timestamp: 0, media: { dir: '', file: '' } };
+
+    socket.on('seekMedia', (media: WatchZoneMediaFile, timestamp: number) => {
+        if (lastSeekEvent.media && lastSeekEvent.media.dir === media.dir && lastSeekEvent.media.file === media.file && lastSeekEvent.timestamp === timestamp) {
+            return;
+        }
+        if (playingNow) {
+            console.log(`Seeking media to ${timestamp} seconds`);
+            if (media.dir !== playingNow.dir && media.file !== playingNow.file) {
+                io.emit('playingNow', media);
+            }
+            socket.broadcast.emit('playingNowSeek', { media, timestamp } as TimestampedMedia);
+            lastSeekEvent = { timestamp, media };
         }
     });
 

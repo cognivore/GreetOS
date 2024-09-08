@@ -3,6 +3,7 @@ import { Socket } from 'socket.io-client';
 import MediaMessage from './MediaMessage';
 import MediaSelector from './MediaSelector';
 import PinnedMediaMessage from './PinnedMediaMessage';
+import { WatchZoneMediaFile } from '../backend/server';
 
 interface Message {
     username: string;
@@ -27,7 +28,7 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
     const [users, setUsers] = useState<User[]>([]);
     const [mediaList, setMediaList] = useState<{ dir: string; files: string[] }[]>([]);
     const [showMediaSelector, setShowMediaSelector] = useState(false);
-    const [pinnedMedia, setPinnedMedia] = useState<Message | null>(null); // Track the pinned media
+    const [pinnedMedia, setPinnedMedia] = useState<WatchZoneMediaFile | null>(null); // Track the pinned media
     const messageEndRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
@@ -48,7 +49,12 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
         });
 
         socket.on('mediaList', (mediaFiles) => {
+            console.log("Setting media list to:", mediaFiles);
             setMediaList(mediaFiles);
+        });
+
+        socket.on('playingNow', (mediaFile: WatchZoneMediaFile) => {
+            handlePlayingNow(mediaFile);
         });
 
         return () => {
@@ -56,6 +62,7 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
             socket.off('chatMessage');
             socket.off('userList');
             socket.off('mediaList');
+            socket.off('playingNow');
         };
     }, [socket]);
 
@@ -69,17 +76,21 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
     };
 
     const handleSelectMedia = (dir: string, file: string) => {
-        const mediaUrl = `/media/${dir}/${file}`;
+        // Replace double forward slashes!
+        const mediaUrl = `/media/${dir}/${file}`.replace(/\/\/+/g, '/');
         const timestamp = new Date().toLocaleTimeString();
         const mediaMessage: Message = { username, media: mediaUrl, timestamp };
-
-        // Pin the media in the watching zone
-        setPinnedMedia(mediaMessage);
 
         // Also send the media message to the chat
         socket.emit('chatMessage', mediaMessage);
         setShowMediaSelector(false); // Hide media selector after choosing a file
     };
+
+    const handlePlayingNow = (media: WatchZoneMediaFile) => {
+        console.log("Setting pinned media to:", media);
+        // Set pinned media to the media object
+        setPinnedMedia(media);
+    }
 
     return (
         <div className="h-screen w-screen flex flex-col bg-gray-900">
@@ -90,9 +101,8 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
                 {pinnedMedia && (
                     <div className="w-full md:w-3/4 bg-black">
                         <PinnedMediaMessage
-                            mediaUrl={pinnedMedia.media!}
-                            timestamp={pinnedMedia.timestamp}
-                            username={pinnedMedia.username}
+                            media={pinnedMedia}
+                            socket={socket}
                         />
                     </div>
                 )}
