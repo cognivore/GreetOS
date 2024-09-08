@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Socket } from 'socket.io-client';
 import MediaMessage from './MediaMessage';
 import MediaSelector from './MediaSelector';
@@ -30,11 +30,6 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
     const [mediaList, setMediaList] = useState<{ dir: string; files: string[] }[]>([]);
     const [showMediaSelector, setShowMediaSelector] = useState(false);
     const [pinnedMedia, setPinnedMedia] = useState<WatchZoneMediaFile | null>(null); // Track the pinned media
-    const messageEndRef = useRef<HTMLDivElement | null>(null);
-
-    useEffect(() => {
-        messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
 
     useEffect(() => {
         socket.on('chatHistory', (chatHistory: Message[]) => {
@@ -109,7 +104,7 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
                 )}
 
                 {/* Message Area takes full width if no media, or 3/4 width if media is present */}
-                <div className={`flex-grow ${pinnedMedia ? 'md:w-1/4' : 'md:w-3/4'} bg-gray-800 p-4 overflow-y-auto max-h-[calc(100vh-4rem)]`}>
+                <div className={`flex-grow ${pinnedMedia ? 'md:w-1/4' : 'md:w-3/4'} bg-gray-800 p-4 overflow-y-auto max-h-[calc(100vh-4rem)] md:max-h-[calc(100vh-8rem)]`}>
                     <div className="w-full">
                         {messages.map((msg, index) => (
                             <div key={index} className="mb-4 text-white w-full">
@@ -130,7 +125,6 @@ const Chat: React.FC<ChatProps> = ({ socket, username }) => {
                                 )}
                             </div>
                         ))}
-                        <div ref={messageEndRef} /> {/* Invisible div to scroll to */}
                     </div>
                 </div>
 
